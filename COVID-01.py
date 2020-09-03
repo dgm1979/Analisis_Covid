@@ -4,7 +4,7 @@ Created on Sun Aug 30 19:22:40 2020
 
 Author: Daniel Gómez
 
-Version: 2.0
+Version: 3.0
 
 """
 
@@ -13,6 +13,15 @@ import datetime as dt
 import matplotlib.pyplot as plt
 from datapackage import Package
 import numpy as np
+
+# Configuración inicial
+w = 7 #ventana de suavización, número de días con los que calcula los quantiles (25, 75 y la mediana) y calcula la media retrospectiva.
+ctry = {'CL':['red','pink'], 
+        'FR':['darkblue','lightblue'],
+        'AR':['goldenrod','khaki'],
+        'BR':['darkgreen','lightgreen'],
+        'US':['black','silver']} #Diccionario de paises y colores de las curvas (https://python-graph-gallery.com/196-select-one-color-with-matplotlib/)
+
 
 # Extracción del paquete y posterior CSV con información de países.
 package = Package('https://datahub.io/core/country-codes/datapackage.json')
@@ -73,9 +82,9 @@ data['Country_code'].replace([' '],'OO',inplace=True)
 data_g=data.groupby('Country_code').apply(lambda x: x.set_index('Date_reported').resample('1D').first())
 
 # Calcula los valores de percentil 25, 75 y la mediana (50)
-data_q25 = data_g.groupby(level=0)[['New_cases','New_deaths']].apply(lambda x: x.rolling(window=14, min_periods=1).quantile(0.25)).reset_index()
-data_q75 = data_g.groupby(level=0)[['New_cases','New_deaths']].apply(lambda x: x.rolling(window=14, min_periods=1).quantile(0.75)).reset_index()
-data_q50 = data_g.groupby(level=0)[['New_cases','New_deaths']].apply(lambda x: x.rolling(window=14, min_periods=1).quantile(0.5)).reset_index()
+data_q25 = data_g.groupby(level=0)[['New_cases','New_deaths']].apply(lambda x: x.rolling(window=w, min_periods=1).quantile(0.25)).reset_index()
+data_q75 = data_g.groupby(level=0)[['New_cases','New_deaths']].apply(lambda x: x.rolling(window=w, min_periods=1).quantile(0.75)).reset_index()
+data_q50 = data_g.groupby(level=0)[['New_cases','New_deaths']].apply(lambda x: x.rolling(window=w, min_periods=1).quantile(0.5)).reset_index()
 
 # Ajuste de Others
 data_q25['Country_code'].replace([' '],'OO',inplace=True)
@@ -119,7 +128,7 @@ data_b.drop(['New_cases',
 
 # Calcula valores medios en el periodo definido
 data_g=data_b.groupby('Country_code').apply(lambda x: x.set_index('Date_reported').resample('1D').first())
-data_f = data_g.groupby(level=0)[['New_cases_s','New_deaths_s']].apply(lambda x: x.rolling(window=14, min_periods=1).mean()).reset_index()
+data_f = data_g.groupby(level=0)[['New_cases_s','New_deaths_s']].apply(lambda x: x.rolling(window=w, min_periods=1).mean()).reset_index()
 data_f= data_b.merge(data_f,how='left',on=['Date_reported','Country_code'],suffixes=('1','2'))
 
 # Corrige el country code de Others
@@ -143,15 +152,9 @@ data.drop(['Date_reported_a','Date_reported_b'],axis=1,inplace=True)
 data = data.merge(ctry_data, how='left',left_on='Country_code',right_on='ISO3166-1-Alpha-2')
 
 #Genera archivo excel con los datos
+print('Fecha de Actualización: '+ data['Date_reported'].max().strftime('%d-%m-%Y'))
 data.to_excel('COVID-01.xlsx')
 print('Datos Archivados')
-
-#Diccionario de paises y colores de las curvas (https://python-graph-gallery.com/196-select-one-color-with-matplotlib/)
-ctry = {'CL':['red','pink'], 
-        'FR':['darkblue','lightblue'],
-        'AR':['goldenrod','khaki'],
-        'BR':['darkgreen','lightgreen'],
-        'US':['black','silver']}
 
 #Curva de contagios
 ax=plt.gca()
@@ -164,6 +167,7 @@ ax.set_ylabel("Número de Casos")
 plt.savefig('Curva-Contagios.png')
 print('Curva de Contagios Archivada')
 plt.show()
+
 #Curva de muertos
 at=plt.gca()
 for x in ctry:
