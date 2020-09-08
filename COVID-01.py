@@ -11,7 +11,6 @@ Version: 3.0
 import pandas as pd
 import datetime as dt
 import matplotlib.pyplot as plt
-from datapackage import Package
 import numpy as np
 
 # Configuración inicial
@@ -24,42 +23,7 @@ ctry = {'CL':['red','pink'],
 
 
 # Extracción del paquete y posterior CSV con información de países.
-package = Package('https://datahub.io/core/country-codes/datapackage.json')
-for resource in package.resources:
-    if resource.descriptor['datahub']['type'] == 'derived/csv':
-        ctry_data = pd.read_csv(resource.descriptor['path'])
-
-# Definición de campos que efectivamente utilizaremos
-ctry_data = ctry_data[['official_name_en', 
-                       'official_name_es', 
-                       'ISO3166-1-Alpha-2',
-                       'ISO3166-1-Alpha-3',
-                       'CLDR display name',
-                       'Continent',
-                       'Region Name', 
-                       'Sub-region Name']]
-
-# Corrección especifica de información faltante para Taiwan y Antartica, y agregar Otros, Kosovo (opcional)
-ctry_data[(ctry_data['ISO3166-1-Alpha-2']=='TW')] = ctry_data[(ctry_data['ISO3166-1-Alpha-2']=='TW')].fillna({'official_name_en':'Taiwan', 'official_name_es':'Taiwan', 'Region Name':'Asia', 'Sub-region Name':'Eastern Asia'})
-ctry_data[(ctry_data['ISO3166-1-Alpha-2']=='AQ')] = ctry_data[(ctry_data['ISO3166-1-Alpha-2']=='AQ')].fillna('Antarctica')
-ctry_data = ctry_data.append({'official_name_en':'Other',
-                              'official_name_es':'Otro',
-                              'ISO3166-1-Alpha-2':'OO',
-                              'ISO3166-1-Alpha-3':'OOO',
-                              'CLDR display name':'Other',
-                              'Continent':'OO',
-                              'Region Name':'Other',
-                              'Sub-region Name':'Other'},
-                             ignore_index=True)
-ctry_data = ctry_data.append({'official_name_en':'Kosovo',
-                              'official_name_es':'Kosovo',
-                              'ISO3166-1-Alpha-2':'XK',
-                              'ISO3166-1-Alpha-3':'XKS',
-                              'CLDR display name':'Kosovo',
-                              'Continent':'EU',
-                              'Region Name':'Europe',
-                              'Sub-region Name':'Southern Europe'},
-                             ignore_index=True)
+ctry_data = pd.read_csv('CountryData.csv')
 
 #Extracción de CSV de sitio de la onu
 data = pd.read_csv('https://covid19.who.int/WHO-COVID-19-global-data.csv', 
@@ -149,7 +113,7 @@ data['Pandemic_day']=(data['Date_reported']-data['Date_reported_b']).dt.days + 1
 data.drop(['Date_reported_a','Date_reported_b'],axis=1,inplace=True)
 
 # Agregar información de País
-data = data.merge(ctry_data, how='left',left_on='Country_code',right_on='ISO3166-1-Alpha-2')
+data = data.merge(ctry_data, how='left',left_on='Country_code',right_on='alpha2Code')
 
 #Genera archivo excel con los datos
 print('Fecha de Actualización: '+ data['Date_reported'].max().strftime('%d-%m-%Y'))
@@ -159,7 +123,7 @@ print('Datos Archivados')
 #Curva de contagios
 ax=plt.gca()
 for x in ctry:
-    ctry_name = ctry_data.loc[ctry_data['ISO3166-1-Alpha-2']==x,'official_name_es'].values[0]
+    ctry_name = ctry_data.loc[ctry_data['alpha2Code']==x,'es'].values[0]
     data[(data['Country_code']==x)].plot(figsize=(15,10),kind='line', label=ctry_name, x='Epidemic_day',y='New_cases_s2',ax=ax, color=ctry[x][0])
     data[(data['Country_code']==x)].plot(figsize=(15,10),kind='scatter', x='Epidemic_day',y='New_cases_s1',ax=ax, color=ctry[x][1],title='Curva de Contagios Diarios')
 ax.set_xlabel("Dia Epidemico")
@@ -171,7 +135,7 @@ plt.show()
 #Curva de muertos
 at=plt.gca()
 for x in ctry:
-    ctry_name = ctry_data.loc[ctry_data['ISO3166-1-Alpha-2']==x,'official_name_es'].values[0]
+    ctry_name = ctry_data.loc[ctry_data['alpha2Code']==x,'es'].values[0]
     data[(data['Country_code']==x)].plot(figsize=(15,10), kind='line', label=ctry_name, x='Epidemic_day',y='New_deaths_s2',ax=at, color=ctry[x][0])
     data[(data['Country_code']==x)].plot(figsize=(15,10), kind='scatter', x='Epidemic_day',y='New_deaths_s1',ax=at, color=ctry[x][1],title='Curva de Muertos Diarios')
 at.set_xlabel("Dia Epidemico")
